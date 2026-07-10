@@ -2,7 +2,19 @@
 // intensity(0~8)가 높을수록 연출이 세진다. 단계별로 새 증상이 하나씩 얹힌다.
 (() => {
   const ORIG_TITLE = document.title;
-  const WORDS = ["여기", "뒤", "봤어", "돌아봐", "늦었어", "네가", "보여", "이름을", "아직", "그만"];
+  const WHISPER_WORDS = ["여기", "뒤", "봤어", "돌아봐", "늦었어", "네가", "보여", "아직", "그만", "왜", "거기", "누구야"];
+  const WHISPER_PHRASES = [
+    "너 지금 읽고 있지",
+    "뒤 돌아보지 마",
+    "하나 더 늘었어",
+    "그거 아까랑 달라",
+    "네 이름 알아",
+    "계속 읽어",
+    "거의 다 왔어",
+    "여기 있으면 안 돼",
+  ];
+  // 라틴 글자를 똑같이 생긴 키릴 문자로 (읽으면 멀쩡한데 미묘하게 틀린 — 위화감)
+  const HOMO = { a: "а", c: "с", e: "е", i: "і", o: "о", p: "р", x: "х", y: "у", s: "ѕ", j: "ј" };
   const COMBINING = ["́", "̀", "̣", "҉", "̶", "̖", "͛", "̽"];
 
   let haunted = false;
@@ -40,8 +52,8 @@
   function cfg(i) {
     return {
       blinkGap: Math.max(1400, 8000 - i * 750),
-      whisperGap: Math.max(2000, 9500 - i * 900),
-      whisperChance: Math.min(1, 0.12 + i * 0.11),
+      whisperGap: Math.max(1800, 8500 - i * 850),
+      whisperChance: Math.min(1, 0.2 + i * 0.1),
       whisperSwaps: 1 + Math.floor(i / 2),
       titleOn: i >= 2,
       titleGap: Math.max(2200, 13000 - i * 1300),
@@ -225,6 +237,49 @@
   }
 
   // ---------- 속삭임 ----------
+  const rand = (n) => Math.floor(Math.random() * n);
+
+  // 글자 훼손 도구들
+  function zalgo(s, amount) {
+    const marks = ["̀", "́", "̂", "̃", "̈", "̣", "̧", "҉", "̶", "͜"];
+    const chars = [...s];
+    const nonSpace = chars.map((c, i) => (/\s/.test(c) ? -1 : i)).filter((i) => i >= 0);
+    const forced = nonSpace.length ? nonSpace[rand(nonSpace.length)] : -1; // 최소 한 글자는 반드시
+    return chars
+      .map((ch, i) => {
+        if (/\s/.test(ch)) return ch;
+        let out = ch;
+        const n = i === forced ? Math.max(1, amount) : Math.random() < 0.6 ? amount : 0;
+        for (let k = 0; k < n; k++) out += marks[rand(marks.length)];
+        return out;
+      })
+      .join("");
+  }
+  function homoglyph(s) {
+    const chars = [...s];
+    const mappable = chars.map((c, i) => (HOMO[c.toLowerCase()] ? i : -1)).filter((i) => i >= 0);
+    const forced = mappable.length ? mappable[rand(mappable.length)] : -1; // 바꿀 수 있으면 최소 하나
+    return chars
+      .map((ch, i) => {
+        const rep = HOMO[ch.toLowerCase()];
+        if (!rep) return ch;
+        return i === forced || Math.random() < 0.6 ? rep : ch;
+      })
+      .join("");
+  }
+  // 라틴이 없어 호모글리프가 안 먹으면(한글 등) 자모 깨짐으로 대체
+  function subtle(word) {
+    const h = homoglyph(word);
+    return h !== word ? h : zalgo(word, 1);
+  }
+  function corruptWord(word, intensity) {
+    const r = Math.random();
+    const w = () => WHISPER_WORDS[rand(WHISPER_WORDS.length)];
+    if (intensity <= 1) return r < 0.6 ? subtle(word) : w();
+    if (intensity <= 4) return r < 0.5 ? w() : r < 0.8 ? subtle(word) : zalgo(word, 1 + (intensity >> 2));
+    return r < 0.45 ? w() : r < 0.75 ? zalgo(word, 1 + (intensity >> 1)) : subtle(word);
+  }
+
   function pickTextNode() {
     if (!document.body) return null;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -241,29 +296,57 @@
     });
     const nodes = [];
     let n;
-    while ((n = walker.nextNode()) && nodes.length < 90) nodes.push(n);
-    return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)] : null;
+    while ((n = walker.nextNode()) && nodes.length < 140) nodes.push(n);
+    if (!nodes.length) return null;
+    // 지금 보고 있는(뷰포트 안) 글자를 우선 — 눈앞에서 바뀌도록
+    const vh = window.innerHeight || 800,
+      vw = window.innerWidth || 1200;
+    const inView = nodes.filter((nn) => {
+      const r = nn.parentElement.getBoundingClientRect();
+      return r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0;
+    });
+    const pool = inView.length ? inView : nodes;
+    return pool[rand(pool.length)];
   }
-  function doWhisper(swaps) {
+
+  function doWhisper(intensity) {
     const node = pickTextNode();
     if (!node) return;
     const original = node.nodeValue;
     const parts = original.split(/(\s+)/);
-    const idxs = parts.map((w, i) => (w.trim().length > 1 ? i : -1)).filter((i) => i >= 0);
-    if (!idxs.length) return;
-    for (let k = 0; k < Math.min(idxs.length, swaps); k++) {
-      const i = idxs[Math.floor(Math.random() * idxs.length)];
-      parts[i] = WORDS[Math.floor(Math.random() * WORDS.length)];
+    const wi = parts.map((w, i) => (w.trim().length > 1 ? i : -1)).filter((i) => i >= 0);
+    if (!wi.length) return;
+
+    // 고강도에선 가끔 구절을 통째로 — 페이지가 당신에게 말을 건다
+    if (intensity >= 4 && Math.random() < 0.12 + intensity * 0.04) {
+      parts[wi[rand(wi.length)]] = WHISPER_PHRASES[rand(WHISPER_PHRASES.length)];
+    } else {
+      const swaps = Math.min(wi.length, 1 + (intensity >> 1));
+      for (let k = 0; k < swaps; k++) {
+        const i = wi[rand(wi.length)];
+        parts[i] = corruptWord(parts[i], intensity);
+      }
     }
     node.nodeValue = parts.join("");
+
+    // 복구 — 고강도에선 드물게 완전히 안 되돌리고 한 글자만 몰래 틀린 채 남긴다
+    const linger = intensity >= 7 && Math.random() < 0.2;
     setTimeout(() => {
-      node.nodeValue = original; // 항상 원상복구
-    }, 700 + Math.random() * 600);
+      if (!linger) {
+        node.nodeValue = original;
+      } else {
+        const p2 = original.split(/(\s+)/);
+        const li = wi[rand(wi.length)];
+        p2[li] = subtle(p2[li]);
+        node.nodeValue = p2.join("");
+      }
+    }, 600 + Math.random() * 600 + intensity * 70);
   }
+
   function whisperLoop(C) {
     T(() => {
       if (!haunted) return;
-      if (Math.random() <= C.whisperChance) doWhisper(C.whisperSwaps);
+      if (Math.random() <= C.whisperChance) doWhisper(intensity);
       whisperLoop(C);
     }, C.whisperGap + Math.random() * C.whisperGap);
   }
