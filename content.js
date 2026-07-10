@@ -27,6 +27,8 @@
     flickerEl = null;
   let stareTimer = null,
     stared = false;
+  let mouseX = -1,
+    mouseY = -1;
   const timers = new Set();
 
   const T = (fn, ms) => {
@@ -282,6 +284,8 @@
 
   function pickTextNode() {
     if (!document.body) return null;
+    const vh = window.innerHeight || 800,
+      vw = window.innerWidth || 1200;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(n) {
         if (!n.nodeValue || n.nodeValue.trim().length < 6) return NodeFilter.FILTER_REJECT;
@@ -289,24 +293,35 @@
         if (!p) return NodeFilter.FILTER_REJECT;
         if (["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA"].includes(p.tagName))
           return NodeFilter.FILTER_REJECT;
-        const r = p.getBoundingClientRect();
-        if (r.width === 0 || r.height === 0) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
-    const nodes = [];
+    // 화면(뷰포트) 안에 실제로 보이는 후보만 모은다
+    const cands = [];
     let n;
-    while ((n = walker.nextNode()) && nodes.length < 140) nodes.push(n);
-    if (!nodes.length) return null;
-    // 지금 보고 있는(뷰포트 안) 글자를 우선 — 눈앞에서 바뀌도록
-    const vh = window.innerHeight || 800,
-      vw = window.innerWidth || 1200;
-    const inView = nodes.filter((nn) => {
-      const r = nn.parentElement.getBoundingClientRect();
-      return r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0;
-    });
-    const pool = inView.length ? inView : nodes;
-    return pool[rand(pool.length)];
+    while ((n = walker.nextNode()) && cands.length < 160) {
+      const el = n.parentElement;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+      cands.push({ node: n, el, r });
+    }
+    if (!cands.length) return null;
+    // 점수: 큰 글자·제목·커서 근처일수록 높다(주의가 가 있는 곳을 노림)
+    for (const c of cands) {
+      const fs = parseFloat(getComputedStyle(c.el).fontSize) || 14;
+      const heading = /^H[1-4]$/.test(c.el.tagName) ? 36 : 0;
+      let prox = 0;
+      if (mouseX >= 0) {
+        const cx = c.r.left + c.r.width / 2,
+          cy = c.r.top + c.r.height / 2;
+        prox = Math.max(0, 320 - Math.hypot(cx - mouseX, cy - mouseY)) / 5;
+      }
+      c.score = fs + heading + prox + Math.random() * 12;
+    }
+    cands.sort((a, b) => b.score - a.score);
+    const top = cands.slice(0, Math.min(5, cands.length));
+    return top[rand(top.length)].node;
   }
 
   function doWhisper(intensity) {
@@ -321,15 +336,17 @@
     if (intensity >= 4 && Math.random() < 0.12 + intensity * 0.04) {
       parts[wi[rand(wi.length)]] = WHISPER_PHRASES[rand(WHISPER_PHRASES.length)];
     } else {
-      const swaps = Math.min(wi.length, 1 + (intensity >> 1));
-      for (let k = 0; k < swaps; k++) {
-        const i = wi[rand(wi.length)];
+      // 연속된 여러 단어를 한꺼번에 — 덩어리로 보여야 인식된다
+      const runLen = Math.min(wi.length, 2 + intensity);
+      const start = rand(Math.max(1, wi.length - runLen + 1));
+      for (let k = 0; k < runLen && start + k < wi.length; k++) {
+        const i = wi[start + k];
         parts[i] = corruptWord(parts[i], intensity);
       }
     }
     node.nodeValue = parts.join("");
 
-    // 복구 — 고강도에선 드물게 완전히 안 되돌리고 한 글자만 몰래 틀린 채 남긴다
+    // 복구 — 더 오래 유지해 눈이 닿을 시간을 준다. 고강도엔 드물게 한 글자 남김
     const linger = intensity >= 7 && Math.random() < 0.2;
     setTimeout(() => {
       if (!linger) {
@@ -340,7 +357,7 @@
         p2[li] = subtle(p2[li]);
         node.nodeValue = p2.join("");
       }
-    }, 600 + Math.random() * 600 + intensity * 70);
+    }, 900 + Math.random() * 700 + intensity * 160);
   }
 
   function whisperLoop(C) {
@@ -400,6 +417,14 @@
   window.addEventListener("blur", () => {
     stared = false;
   });
+  document.addEventListener(
+    "mousemove",
+    (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    },
+    { passive: true }
+  );
 
   // ---------- 상태 전이 ----------
   function startEffects() {
