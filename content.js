@@ -31,6 +31,7 @@
     mouseY = -1;
   let gaze = { x: 0, y: 0 };
   let eyeOpen = true;
+  let faviconOK = null; // null=미확정, true/false=data: URL favicon 허용 여부(CSP)
   const timers = new Set();
 
   const T = (fn, ms) => {
@@ -162,6 +163,7 @@
     return c.toDataURL("image/png");
   }
   function setFavicon(dataUrl) {
+    if (faviconOK !== true) return; // CSP가 data: 이미지를 막는 사이트에선 눈 렌더링을 건너뛴다
     if (savedIcons === null)
       savedIcons = [...document.querySelectorAll('link[rel~="icon"]')].map((l) => l.href);
     document.querySelectorAll('link[rel~="icon"]').forEach((l) => l.remove());
@@ -556,6 +558,25 @@
     else if (msg.type === "corrupt") corrupt(msg.intensity);
     else if (msg.type === "unhaunt") unhaunt();
   });
+
+  // 일부 사이트(엄격한 CSP — img-src에 data: 없음)는 data: URL favicon을 막는다.
+  // 미리 한 번 테스트해서, 막히면 눈은 조용히 포기(에러 폭주 방지)하고 나머지 연출만 남긴다.
+  (function probeFavicon() {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        faviconOK = true;
+        if (haunted && eyeOpen) renderEye(true); // 확인되면 그때 눈을 띄운다
+      };
+      img.onerror = () => {
+        faviconOK = false;
+      };
+      img.src =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    } catch (e) {
+      faviconOK = false;
+    }
+  })();
 
   // 로드/새로고침 직후: 내가 그 탭이면 현재 강도로 다시 깃든다
   chrome.runtime.sendMessage({ type: "am-i-haunted" }, (res) => {
