@@ -30,6 +30,7 @@
   let mouseX = -1,
     mouseY = -1;
   let gaze = { x: 0, y: 0 };
+  let eyeOpen = true;
   const timers = new Set();
 
   const T = (fn, ms) => {
@@ -282,37 +283,47 @@
     }, 700 + Math.random() * 900);
   }
 
-  // ---------- 눈동자 ----------
-  function newGaze(level) {
-    if (Math.random() < 0.4) return { x: 0, y: 0 }; // 정면 — 당신을 똑바로 봄
-    const rng = 2 + level * 0.3;
-    return { x: (Math.random() * 2 - 1) * rng, y: (Math.random() * 2 - 1) * rng * 0.6 };
-  }
+  // ---------- 눈동자 (마우스를 쫓는다) ----------
   function renderEye(open) {
+    eyeOpen = open;
     setFavicon(eyeIcon(open, intensity, gaze));
+  }
+  function targetGaze() {
+    if (mouseX < 0) return { x: 0, y: 0 }; // 마우스 위치를 모르면 정면 응시
+    const vw = window.innerWidth || 1200,
+      vh = window.innerHeight || 800;
+    const maxX = 6,
+      maxY = 3;
+    return {
+      x: Math.max(-maxX, Math.min(maxX, ((mouseX - vw / 2) / (vw / 2)) * maxX)),
+      y: Math.max(-maxY, Math.min(maxY, ((mouseY - vh / 2) / (vh / 2)) * maxY)),
+    };
+  }
+  // 마우스가 움직이면 동공이 그 방향으로 미끄러지며 따라간다
+  function followLoop() {
+    T(() => {
+      if (!haunted) return;
+      if (eyeOpen) {
+        const t = targetGaze();
+        const nx = gaze.x + (t.x - gaze.x) * 0.6;
+        const ny = gaze.y + (t.y - gaze.y) * 0.6;
+        if (Math.abs(nx - gaze.x) > 0.3 || Math.abs(ny - gaze.y) > 0.3) {
+          gaze = { x: nx, y: ny };
+          renderEye(true);
+        }
+      }
+      followLoop();
+    }, 90);
   }
   function blinkLoop(C) {
     T(() => {
       if (!haunted) return;
       renderEye(false);
       setTimeout(() => {
-        if (haunted) {
-          gaze = newGaze(intensity); // 다시 뜰 때 시선이 옮겨간다
-          renderEye(true);
-        }
+        if (haunted) renderEye(true); // 다시 뜨면 followLoop이 마우스를 향해 이어받는다
       }, 150);
       blinkLoop(C);
     }, C.blinkGap + Math.random() * 5000);
-  }
-  // 고강도에선 깜빡이지 않아도 눈동자가 두리번거린다(당신을 찾는다)
-  function gazeLoop() {
-    if (intensity < 5) return;
-    T(() => {
-      if (!haunted) return;
-      gaze = newGaze(intensity);
-      renderEye(true);
-      gazeLoop();
-    }, 900 + Math.random() * 1600);
   }
 
   // ---------- 속삭임 ----------
@@ -511,7 +522,7 @@
     renderEye(true);
     applyStatics(C);
     blinkLoop(C);
-    gazeLoop();
+    followLoop();
     whisperLoop(C);
     if (C.titleOn) titleGlitchLoop(C);
     flickerLoop(C);
