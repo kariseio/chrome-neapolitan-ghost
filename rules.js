@@ -134,17 +134,29 @@ function setEyeFavicon() {
   const c = document.createElement("canvas");
   c.width = c.height = 32;
   const g = c.getContext("2d");
-  g.fillStyle = "rgba(232,232,232,0.95)";
+  // 병색 흰자
+  g.fillStyle = "rgba(230,220,200,0.97)";
   g.beginPath();
   g.ellipse(16, 16, 14, 9, 0, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = "#3a2b2b";
+  // 실핏줄
+  g.strokeStyle = "rgba(150,20,20,0.7)";
+  g.lineWidth = 0.8;
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.4;
+    g.beginPath();
+    g.moveTo(16 + Math.cos(a) * 13, 16 + Math.sin(a) * 8);
+    g.lineTo(16 + Math.cos(a) * 6, 16 + Math.sin(a) * 4);
+    g.stroke();
+  }
+  // 핏빛 홍채 + 세로 슬릿 동공
+  g.fillStyle = "#7c0d0d";
   g.beginPath();
-  g.arc(16, 16, 5, 0, Math.PI * 2);
+  g.arc(16, 16, 6, 0, Math.PI * 2);
   g.fill();
   g.fillStyle = "#000";
   g.beginPath();
-  g.arc(16, 16, 2.2, 0, Math.PI * 2);
+  g.ellipse(16, 16, 2, 9, 0, 0, Math.PI * 2);
   g.fill();
   const link = document.createElement("link");
   link.rel = "icon";

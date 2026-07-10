@@ -29,6 +29,7 @@
     stared = false;
   let mouseX = -1,
     mouseY = -1;
+  let gaze = { x: 0, y: 0 };
   const timers = new Set();
 
   const T = (fn, ms) => {
@@ -76,32 +77,87 @@
   }
 
   // ---------- favicon: 눈 ----------
-  function eyeIcon(open = true) {
+  function eyeIcon(open = true, level = 0, gz = { x: 0, y: 0 }) {
     const c = document.createElement("canvas");
     c.width = c.height = 32;
     const g = c.getContext("2d");
     g.clearRect(0, 0, 32, 32);
-    if (open) {
-      g.fillStyle = "rgba(232,232,232,0.95)";
-      g.beginPath();
-      g.ellipse(16, 16, 14, 9, 0, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = "#3a2b2b";
-      g.beginPath();
-      g.arc(16, 16, 5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = "#000";
-      g.beginPath();
-      g.arc(16, 16, 2.2, 0, Math.PI * 2);
-      g.fill();
-    } else {
-      g.strokeStyle = "rgba(150,150,150,0.95)";
+
+    if (!open) {
+      g.strokeStyle = level >= 5 ? "rgba(120,18,18,0.95)" : "rgba(150,150,150,0.95)";
       g.lineWidth = 2;
       g.beginPath();
       g.moveTo(4, 16);
-      g.quadraticCurveTo(16, 23, 28, 16);
+      g.quadraticCurveTo(16, 22, 28, 16);
+      g.stroke();
+      return c.toDataURL("image/png");
+    }
+
+    // 흰자 — 오염될수록 병색
+    g.fillStyle =
+      level >= 6 ? "rgba(226,212,178,0.97)" : level >= 3 ? "rgba(234,226,222,0.97)" : "rgba(236,236,236,0.96)";
+    g.beginPath();
+    g.ellipse(16, 16, 14, 9, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // 실핏줄(충혈) — level>=4
+    if (level >= 4) {
+      g.strokeStyle = "rgba(150,20,20," + Math.min(0.9, 0.3 + level * 0.07) + ")";
+      g.lineWidth = 0.8;
+      const veins = level >= 7 ? 5 : 3;
+      for (let k = 0; k < veins; k++) {
+        const ang = (k / veins) * Math.PI * 2 + 0.4;
+        g.beginPath();
+        g.moveTo(16 + Math.cos(ang) * 13, 16 + Math.sin(ang) * 8);
+        g.lineTo(16 + Math.cos(ang) * 6 + (Math.random() * 2 - 1), 16 + Math.sin(ang) * 4 + (Math.random() * 2 - 1));
+        g.stroke();
+      }
+    }
+
+    const ix = 16 + gz.x,
+      iy = 16 + gz.y;
+
+    // 홍채 — 갈색 → 핏빛
+    const irisR = 5 + (level >= 6 ? 1.6 : level >= 3 ? 0.8 : 0);
+    g.fillStyle = level >= 6 ? "#7c0d0d" : level >= 3 ? "#5a1f1f" : "#3a2b2b";
+    g.beginPath();
+    g.arc(ix, iy, irisR, 0, Math.PI * 2);
+    g.fill();
+    if (level >= 7) {
+      g.strokeStyle = "rgba(210,30,30,0.75)"; // 붉은 발광 링
+      g.lineWidth = 1;
+      g.beginPath();
+      g.arc(ix, iy, irisR + 1, 0, Math.PI * 2);
       g.stroke();
     }
+
+    // 동공 — 낮으면 원형, 높으면 세로 슬릿(악마/뱀 눈)
+    g.fillStyle = "#000";
+    g.beginPath();
+    if (level >= 5) {
+      g.ellipse(ix, iy, Math.max(1.1, irisR * 0.32), irisR * 1.5, 0, 0, Math.PI * 2);
+    } else {
+      g.arc(ix, iy, 2.2 + (level >= 3 ? 0.9 : 0), 0, Math.PI * 2);
+    }
+    g.fill();
+
+    // 하이라이트(생기) — 저강도만. 빼면 죽은 눈처럼 보인다
+    if (level < 4) {
+      g.fillStyle = "rgba(255,255,255,0.85)";
+      g.beginPath();
+      g.arc(ix - 1.6, iy - 1.6, 1, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // 피눈물 — level>=7
+    if (level >= 7) {
+      g.fillStyle = "rgba(140,10,10,0.9)";
+      g.fillRect(ix - 0.6, iy + irisR, 1.2, 9);
+      g.beginPath();
+      g.arc(ix, iy + irisR + 9, 1.3, 0, Math.PI * 2);
+      g.fill();
+    }
+
     return c.toDataURL("image/png");
   }
   function setFavicon(dataUrl) {
@@ -226,16 +282,37 @@
     }, 700 + Math.random() * 900);
   }
 
-  // ---------- 눈 깜빡임 ----------
+  // ---------- 눈동자 ----------
+  function newGaze(level) {
+    if (Math.random() < 0.4) return { x: 0, y: 0 }; // 정면 — 당신을 똑바로 봄
+    const rng = 2 + level * 0.3;
+    return { x: (Math.random() * 2 - 1) * rng, y: (Math.random() * 2 - 1) * rng * 0.6 };
+  }
+  function renderEye(open) {
+    setFavicon(eyeIcon(open, intensity, gaze));
+  }
   function blinkLoop(C) {
     T(() => {
       if (!haunted) return;
-      setFavicon(eyeIcon(false));
+      renderEye(false);
       setTimeout(() => {
-        if (haunted) setFavicon(eyeIcon(true));
+        if (haunted) {
+          gaze = newGaze(intensity); // 다시 뜰 때 시선이 옮겨간다
+          renderEye(true);
+        }
       }, 150);
       blinkLoop(C);
     }, C.blinkGap + Math.random() * 5000);
+  }
+  // 고강도에선 깜빡이지 않아도 눈동자가 두리번거린다(당신을 찾는다)
+  function gazeLoop() {
+    if (intensity < 5) return;
+    T(() => {
+      if (!haunted) return;
+      gaze = newGaze(intensity);
+      renderEye(true);
+      gazeLoop();
+    }, 900 + Math.random() * 1600);
   }
 
   // ---------- 속삭임 ----------
@@ -431,9 +508,10 @@
     clearAll();
     if (!haunted) return;
     const C = cfg(intensity);
-    setFavicon(eyeIcon(true));
+    renderEye(true);
     applyStatics(C);
     blinkLoop(C);
+    gazeLoop();
     whisperLoop(C);
     if (C.titleOn) titleGlitchLoop(C);
     flickerLoop(C);
