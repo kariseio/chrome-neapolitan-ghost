@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "탭을 옮겨다니는 것",
+  "version": "0.1.0",
+  "description": "가끔, 열어둔 탭 중 하나가 조용히 당신을 봅니다. 그리고 자리를 옮깁니다.",
+  "permissions": ["tabs", "alarms", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

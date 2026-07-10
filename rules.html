@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>읽어 주세요</title>
+    <style>
+      :root {
+        --bg: #0b0b0d;
+        --ink: #d9d4cc;
+        --dim: #6f6a63;
+        --blood: #7c1f1f;
+        --rust: #8a5a2a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at 50% 30%, #141416, var(--bg) 70%);
+        color: var(--ink);
+        font-family: "Nanum Myeongjo", "Batang", Georgia, serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        transition: filter 1.2s ease;
+      }
+      main {
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 12vh 28px 22vh;
+      }
+      .eyebrow {
+        letter-spacing: 0.35em;
+        font-size: 12px;
+        color: var(--dim);
+        margin: 0 0 18px;
+      }
+      h1 {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin: 0 0 26px;
+      }
+      .lede {
+        color: #b9b3aa;
+        line-height: 1.9;
+        margin: 0 0 40px;
+      }
+      ol {
+        margin: 0 0 44px;
+        padding: 0;
+        list-style: none;
+      }
+      ol li {
+        position: relative;
+        padding: 16px 0 16px 52px;
+        border-top: 1px solid #1e1e21;
+        line-height: 1.75;
+        transition: color 0.6s ease, opacity 0.6s ease;
+      }
+      .num {
+        position: absolute;
+        left: 0;
+        top: 16px;
+        color: var(--dim);
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        font-variant-numeric: tabular-nums;
+      }
+      .conflict {
+        display: block;
+        margin-top: 7px;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        color: var(--rust);
+      }
+      li.broken {
+        color: var(--blood);
+        text-decoration: line-through;
+        text-decoration-color: rgba(124, 31, 31, 0.7);
+      }
+      li.broken .num {
+        color: var(--blood);
+      }
+      li.missing {
+        color: #3a3a3e;
+        font-style: italic;
+      }
+      li.missing .num {
+        color: #3a3a3e;
+        text-decoration: line-through;
+      }
+      li.reveal {
+        color: var(--blood);
+        font-style: italic;
+        animation: seep 2.6s ease both;
+      }
+      li.reveal .num {
+        color: var(--blood);
+        text-decoration: none;
+      }
+      li.meta {
+        color: #9a938a;
+        font-style: italic;
+      }
+      li.active {
+        animation: pulse 1.7s ease-in-out infinite;
+      }
+      li.appeared {
+        animation: seep 2.4s ease both;
+      }
+      @keyframes seep {
+        from {
+          opacity: 0;
+          filter: blur(3px);
+        }
+        to {
+          opacity: 1;
+          filter: none;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          color: var(--blood);
+        }
+        50% {
+          color: #c94a4a;
+        }
+      }
+      .warn {
+        color: var(--dim);
+        font-size: 14px;
+        line-height: 1.8;
+        border-left: 2px solid #2a2a2d;
+        padding-left: 16px;
+        transition: color 0.6s ease;
+      }
+      .meter {
+        margin-top: 34px;
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        color: var(--dim);
+      }
+      body[data-corruption="1"] {
+        filter: contrast(1.03);
+      }
+      body[data-corruption="2"] {
+        filter: contrast(1.06) saturate(0.9);
+      }
+      body[data-corruption="3"] {
+        filter: contrast(1.1) saturate(0.8) hue-rotate(-6deg);
+      }
+      body[data-corruption="4"] {
+        filter: contrast(1.18) saturate(0.6) hue-rotate(-12deg);
+        animation: tremor 3.5s steps(2) infinite;
+      }
+      @keyframes tremor {
+        0%,
+        97%,
+        100% {
+          transform: translate(0, 0);
+        }
+        98% {
+          transform: translate(-1px, 1px);
+        }
+        99% {
+          transform: translate(1px, -1px);
+        }
+      }
+      #reset {
+        position: fixed;
+        right: 10px;
+        bottom: 8px;
+        width: 18px;
+        height: 18px;
+        border: none;
+        background: transparent;
+        color: #26262a;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+      }
+      #reset:hover {
+        color: var(--dim);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow" id="eyebrow">설치가 끝났습니다</p>
+      <h1 id="heading">규칙</h1>
+      <p class="lede" id="lede">
+        이미 당신의 탭 중 하나가 그것을 품고 있습니다.<br />
+        번호 순서대로 지키십시오. 규칙이 서로 어긋나도, 그것은 당신의 사정입니다.
+      </p>
+      <ol id="rules"></ol>
+      <p class="warn" id="warn">
+        규칙을 어길 때마다 그것은 조금씩 망가집니다.<br />
+        되돌리는 방법은 여기에 적혀 있지 않습니다.
+      </p>
+      <div class="meter" id="meter">상태 : 온전함</div>
+    </main>
+    <button id="reset" title="처음부터 (개발용 초기화)">·</button>
+    <script src="rules.js"></script>
+  </body>
+</html>
