@@ -5,8 +5,20 @@
   "description": "가끔, 열어둔 탭 중 하나가 조용히 당신을 봅니다. 그리고 자리를 옮깁니다.",
   "permissions": ["tabs", "alarms", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_title": "괴담 — 규칙서 열기"
+    "default_title": "괴담 — 규칙서 열기",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
