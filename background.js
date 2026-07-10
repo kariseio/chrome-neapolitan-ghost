@@ -46,6 +46,23 @@ function params(c) {
 function send(tabId, msg) {
   chrome.tabs.sendMessage(tabId, msg).catch(() => {});
 }
+
+// 귀신을 깃들일 때는 메시지가 반드시 닿아야 한다.
+// 설치 전부터 열려 있던 탭엔 content.js가 없어 sendMessage가 실패하므로,
+// 그럴 땐 content.js를 직접 주입한 뒤 재시도한다.
+async function sendHaunt(tabId, intensity) {
+  const msg = { type: "haunt", intensity };
+  try {
+    await chrome.tabs.sendMessage(tabId, msg);
+  } catch (e) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      await chrome.tabs.sendMessage(tabId, msg);
+    } catch (e2) {
+      // 주입 불가한 탭(스토어·특수 페이지 등) → 조용히 포기
+    }
+  }
+}
 async function eligibleTabs() {
   const tabs = await chrome.tabs.query({});
   return tabs.filter((t) => t.url && ELIGIBLE.test(t.url));
@@ -69,12 +86,12 @@ async function moveGhost() {
   const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, p.count);
   const nextIds = shuffled.map((t) => t.id);
 
+  await setSession({ hauntedTabIds: nextIds });
   prev
     .filter((id) => !nextIds.includes(id))
     .forEach((id) => send(id, { type: "unhaunt" }));
-  nextIds.forEach((id) => send(id, { type: "haunt", intensity: c }));
+  for (const id of nextIds) await sendHaunt(id, c);
 
-  await setSession({ hauntedTabIds: nextIds });
   const delay = p.minDelay + Math.random() * (p.maxDelay - p.minDelay);
   scheduleNext(delay);
 }
