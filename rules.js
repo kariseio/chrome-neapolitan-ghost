@@ -1,6 +1,6 @@
 // 규칙서 페이지.
 // - 번호는 "고정"이다. 4·12·15는 결번(缺番)이다.
-// - 규칙끼리 서로 어긋난다(대립). ↯ 표시로 드러낸다.
+// - 규칙끼리 서로 어긋난다(대립). 단, 어디가 어긋나는지는 절대 알려주지 않는다 — 독자가 스스로 눈치채야 한다.
 // - corruption(오염도 0~8)에 따라 감춰진 규칙이 드러나거나 문구가 변한다.
 // - brokenRules(어긴 번호)에는 취소선이 그어진다.
 // - 오염도가 오르면 이 문서 자체도 어두워지고, 불빛이 깜빡인다.
@@ -255,16 +255,7 @@ function render(corruption, broken) {
     if (r.meta) li.classList.add("meta");
     if (r.showAt && c >= r.showAt) li.classList.add("appeared");
     if (brokenSet.has(r.n)) li.classList.add("broken");
-    if (r.activeAt && c >= r.activeAt) li.classList.add("active");
-
-    if (r.conflict && !li.classList.contains("reveal")) {
-      const note = document.createElement("span");
-      note.className = "conflict";
-      const live = r.activeAt && c >= r.activeAt ? " — 지금 서로를 잡아먹고 있습니다" : "";
-      note.textContent =
-        "↯ 규칙 " + r.conflict.map(pad2).join(", ") + " 과(와) 어긋납니다" + live;
-      li.appendChild(note);
-    }
+    // 모순은 규칙 텍스트에 잠복시킨다 — 절대 라벨로 알려주지 않는다.
 
     ol.appendChild(li);
   }
