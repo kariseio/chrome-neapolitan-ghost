@@ -123,11 +123,18 @@ async function violate(kind) {
 }
 
 // ---------- 수명주기 ----------
-async function openRules() {
+async function openRules(focus) {
   const url = chrome.runtime.getURL("rules.html");
   const existing = await chrome.tabs.query({ url });
   if (existing.length) {
     await setSession({ rulesTabId: existing[0].id });
+    if (focus) {
+      // 이미 열려 있으면 그 탭으로 이동해 보여준다
+      await chrome.tabs.update(existing[0].id, { active: true });
+      if (existing[0].windowId != null) {
+        await chrome.windows.update(existing[0].windowId, { focused: true });
+      }
+    }
   } else {
     const tab = await chrome.tabs.create({ url });
     await setSession({ rulesTabId: tab.id });
@@ -148,6 +155,9 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.alarms.onAlarm.addListener(async (a) => {
   if (a.name === "move-ghost") await moveGhost();
 });
+
+// 툴바의 확장 아이콘("괴담")을 클릭하면 규칙서를 연다(이미 열려 있으면 그 탭으로)
+chrome.action.onClicked.addListener(() => openRules(true));
 
 // ---------- 메시지 ----------
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
