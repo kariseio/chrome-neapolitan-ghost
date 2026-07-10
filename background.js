@@ -3,8 +3,9 @@
 // - hauntedTabIds / rulesTabId(storage.session): 지금 깃든 탭들, 규칙서 탭.
 
 const ELIGIBLE = /^https?:/i;
-const MAX_CORRUPTION = 4;
+const MAX_CORRUPTION = 8; // 오염도 0~8 (잘게 나눔)
 const MAX_TABS = 6; // 7개째부터 규칙 위반
+const DRIFT_CHANCE = 0.15; // 이동할 때마다 저절로 나빠질 확률(불가피함)
 
 // 어떤 위반이 어떤 "번호의 규칙"을 부순 것으로 기록되는가
 const RULE_OF = {
@@ -36,9 +37,9 @@ async function setSession(patch) {
 // ---------- 강도 파라미터 ----------
 function params(c) {
   return {
-    count: c >= 3 ? 3 : c >= 2 ? 2 : 1, // 오염될수록 여러 탭에 동시에 깃든다
-    minDelay: Math.max(0.2, 0.8 - c * 0.15), // 이동이 빨라진다(분)
-    maxDelay: Math.max(0.4, 1.6 - c * 0.3),
+    count: c >= 6 ? 4 : c >= 4 ? 3 : c >= 2 ? 2 : 1, // 오염될수록 여러 탭에 동시에 깃든다
+    minDelay: Math.max(0.15, 0.8 - c * 0.07), // 이동이 빨라진다(분)
+    maxDelay: Math.max(0.35, 1.6 - c * 0.14),
   };
 }
 
@@ -55,7 +56,12 @@ function scheduleNext(minutes) {
 
 // ---------- 귀신 이동 ----------
 async function moveGhost() {
-  const c = await getCorruption();
+  let c = await getCorruption();
+  // 가끔, 아무 짓 안 해도 저절로 한 단계 나빠진다 (서서히 스며드는 오염)
+  if (c < MAX_CORRUPTION && Math.random() < DRIFT_CHANCE) {
+    c += 1;
+    await setCorruption(c);
+  }
   const p = params(c);
   const { hauntedTabIds: prev } = await getSession();
 
@@ -159,4 +165,13 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 chrome.tabs.onCreated.addListener(async () => {
   const tabs = await chrome.tabs.query({});
   if (tabs.length > MAX_TABS) violate("too-many-tabs");
+});
+
+// 오염도가 바뀌면(위반·드리프트·리셋) 지금 깃든 탭에 즉시 반영한다
+chrome.storage.onChanged.addListener((ch, area) => {
+  if (area !== "local" || !ch.corruption) return;
+  const c = ch.corruption.newValue || 0;
+  getSession().then(({ hauntedTabIds }) =>
+    hauntedTabIds.forEach((id) => send(id, { type: "corrupt", intensity: c }))
+  );
 });

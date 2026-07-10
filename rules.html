@@ -145,17 +145,31 @@
         color: var(--dim);
       }
       body[data-corruption="1"] {
-        filter: contrast(1.03);
+        filter: contrast(1.02);
       }
       body[data-corruption="2"] {
-        filter: contrast(1.06) saturate(0.9);
+        filter: contrast(1.05) saturate(0.95);
       }
       body[data-corruption="3"] {
-        filter: contrast(1.1) saturate(0.8) hue-rotate(-6deg);
+        filter: contrast(1.07) saturate(0.9);
       }
       body[data-corruption="4"] {
-        filter: contrast(1.18) saturate(0.6) hue-rotate(-12deg);
-        animation: tremor 3.5s steps(2) infinite;
+        filter: contrast(1.09) saturate(0.8) hue-rotate(-4deg);
+      }
+      body[data-corruption="5"] {
+        filter: contrast(1.12) saturate(0.6) hue-rotate(-7deg);
+      }
+      body[data-corruption="6"] {
+        filter: contrast(1.15) saturate(0.45) hue-rotate(-10deg);
+        animation: tremor 4s steps(2) infinite;
+      }
+      body[data-corruption="7"] {
+        filter: contrast(1.2) saturate(0.3) hue-rotate(-14deg);
+        animation: tremor 3s steps(2) infinite;
+      }
+      body[data-corruption="8"] {
+        filter: contrast(1.28) saturate(0.18) hue-rotate(-18deg);
+        animation: tremor 2.2s steps(2) infinite;
       }
       @keyframes tremor {
         0%,
