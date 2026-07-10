@@ -123,11 +123,13 @@ chrome.runtime.onInstalled.addListener(async (d) => {
     await chrome.storage.local.set({ brokenRules: [] });
   }
   await openRules();
-  moveGhost();
+  await moveGhost();
 });
-chrome.runtime.onStartup.addListener(() => moveGhost());
-chrome.alarms.onAlarm.addListener((a) => {
-  if (a.name === "move-ghost") moveGhost();
+chrome.runtime.onStartup.addListener(async () => {
+  await moveGhost();
+});
+chrome.alarms.onAlarm.addListener(async (a) => {
+  if (a.name === "move-ghost") await moveGhost();
 });
 
 // ---------- 메시지 ----------
@@ -164,7 +166,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 // 규칙 3: 탭 7개 이상
 chrome.tabs.onCreated.addListener(async () => {
   const tabs = await chrome.tabs.query({});
-  if (tabs.length > MAX_TABS) violate("too-many-tabs");
+  if (tabs.length > MAX_TABS) await violate("too-many-tabs");
 });
 
 // 오염도가 바뀌면(위반·드리프트·리셋) 지금 깃든 탭에 즉시 반영한다
