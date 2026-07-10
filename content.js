@@ -374,6 +374,7 @@
 
   function pickTextNode() {
     if (!document.body) return null;
+    if (document.designMode === "on") return null; // 문서 전체가 편집 모드면 건드리지 않는다
     const vh = window.innerHeight || 800,
       vw = window.innerWidth || 1200;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -381,8 +382,10 @@
         if (!n.nodeValue || n.nodeValue.trim().length < 6) return NodeFilter.FILTER_REJECT;
         const p = n.parentElement;
         if (!p) return NodeFilter.FILTER_REJECT;
-        if (["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA"].includes(p.tagName))
+        if (["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT", "OPTION"].includes(p.tagName))
           return NodeFilter.FILTER_REJECT;
+        // 편집 가능한 영역(노션·구글독스·입력창 등)은 절대 건드리지 않는다 — 저장/오작동 방지
+        if (p.isContentEditable) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
